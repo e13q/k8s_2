@@ -2,3 +2,4 @@
 __pycache__/
 *.py[cod]
 *$py.class
+deploy/yc-sirius/edu-charming-yonath/.env

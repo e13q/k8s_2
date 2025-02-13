@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: django-clearsessions
+spec:
+  schedule: "0 0 1 * *"
+  startingDeadlineSeconds: 300  # 5 минут
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          containers:
+          - name: django
+            image: e13q/django-site:9a146d1022889d81b954898699b19996ea50362e
+            imagePullPolicy: IfNotPresent
+            command: ["python3", "manage.py", "clearsessions"]
+            envFrom:
+            - secretRef:
+                name: django-secrets
+            volumeMounts:
+            - mountPath: /root/.postgresql
+              name: pg-root-cert
+              readOnly: true 
+          restartPolicy: Never
+          volumes:
+          - name: pg-root-cert
+            secret:
+              secretName: pg-root-cert
+          

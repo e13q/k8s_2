@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: django-migrate
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        image: e13q/django-site:9a146d1022889d81b954898699b19996ea50362e
+        imagePullPolicy: IfNotPresent
+        command: ["python3", "manage.py", "migrate"]
+        envFrom:
+        - secretRef:
+            name: django-secrets
+        volumeMounts:
+        - mountPath: /root/.postgresql
+          name: pg-root-cert
+          readOnly: true             
+      volumes:
+      - name: pg-root-cert
+        secret:
+          secretName: pg-root-cert
+      restartPolicy: Never
