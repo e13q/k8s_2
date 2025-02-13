@@ -76,18 +76,18 @@ $ docker compose build web
 
 `DATABASE_URL` -- адрес для подключения к базе данных PostgreSQL. Другие СУБД сайт не поддерживает. [Формат записи](https://github.com/jacobian/dj-database-url#url-schema).
 
-## Запуск в кластере
+## Работа в кластере
 Важно: при работе в кластере указывать namespace либо в манифестах, либо по умолчанию в настройках ПО с графическим интерфейсом (Lens, например).
 
 Пример запуска пода с Nginx описан в ```\deploy\yc-sirius\edu-charming-yonath\``` в файлах ```simple-pod.yaml``` и ```simple-service.yaml```.
 Реализация основана на работе балансировщика (Application Load Balancer) по принципу "домен -> nodePort". Достаточно указать nodePort, и при обращении к нужному URL балансировщик направит запрос на соответствующий под.
 
-## Postgresql SSL
+### Postgresql SSL
 Пример пода с загрузкой SSL сертификата для проверки доступности Postgresql реализован в файле ```\deploy\yc-sirius\edu-charming-yonath\simple-psql-testing.yaml```.
 Подключиться к поду и подключиться к postgresql через psql.
 
 
-## Секреты
+### Секреты
 Для создания секрета на кластере можно использовать .env файл с данными.
 Пример содержания .env:
 ```
@@ -101,7 +101,7 @@ ALLOWED_HOSTS=192.168.1.1,127.0.0.1,localhost
 kubectl create secret generic django-secrets --from-env-file=.env
 ```
 
-## Сборка и публикация образа
+### Сборка и публикация образа
 
 Сборка образа с тегом, включающим хэш коммита
 
@@ -126,4 +126,77 @@ docker login -u your-dockerhub-username
 docker push your-dockerhub-username/django-site:$commitHash
 ```
 
+### Как запустить
 
+Секреты:
+```
+kubectl create secret generic django-secrets --from-env-file=.env
+```
+Django:
+```
+kubectl apply -f deploy.yaml
+```
+Django - миграция:
+```
+kubectl apply -f job-migrate.yaml
+```
+Сервис:
+```
+kubectl apply -f service.yaml
+```
+CronJob на чистку сессий:
+```
+kubectl apply -f cronjob-clearsessions.yaml
+```
+
+Готово! Ресурс доступен на выделенном админом домене.
+В моём случае это [edu-charming-yonath.sirius-k8s.dvmn.org](https://edu-charming-yonath.sirius-k8s.dvmn.org/)
+
+### Создание суперпользователя / запуск Management скриптов
+
+Подключаемся к поду с Django
+```
+kubectl exec -it django-7b77cdd848-6jrf6 /bin/bash
+```
+
+Запускаем Management-команду
+```
+python3 manage.py createsuperuser
+```
+
+Отвечаем на вопросы и готово.
+
+### Где искать ошибки
+Ошибки можно обнаружить в логах пода с Django. Например:
+```
+kubectl logs django-7b77cdd848-6jrf6
+```
+
+### Обновление новой версии
+
+[Собираем новый образ](#сборка-и-публикация-образа)
+Указываем новый образ в манифестах deploy.yaml, job-migrate.yaml, cronjob-clearsessions.yaml.
+Запускаем по очереди команды:
+Обновим Django:
+```
+kubectl apply -f deploy.yaml
+```
+Выполним Django - миграцию:
+```
+kubectl apply -f job-migrate.yaml
+```
+Обновим CronJob на чистку сессий:
+```
+kubectl delete -f cronjob-clearsessions.yaml && kubectl apply -f cronjob-clearsessions.yaml
+```
+Запускаем
+```
+kubectl get pods
+```
+Если статусы у Django "Running", а у миграции "Completed" - всё завершено успешно. 
+```
+NAME                      READY   STATUS      RESTARTS   AGE
+django-7b77cdd848-6jrf6   1/1     Running     0          17m
+django-migrate-kvznf      0/1     Completed   0          17m
+```
+В ином случае [смотрим ошибки](#где-искать-ошибки)
