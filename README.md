@@ -75,3 +75,55 @@ $ docker compose build web
 `ALLOWED_HOSTS` -- настройка Django со списком разрешённых адресов. Если запрос прилетит на другой адрес, то сайт ответит ошибкой 400. Можно перечислить несколько адресов через запятую, например `127.0.0.1,192.168.0.1,site.test`. [Документация Django](https://docs.djangoproject.com/en/3.2/ref/settings/#allowed-hosts).
 
 `DATABASE_URL` -- адрес для подключения к базе данных PostgreSQL. Другие СУБД сайт не поддерживает. [Формат записи](https://github.com/jacobian/dj-database-url#url-schema).
+
+## Запуск в кластере
+Важно: при работе в кластере указывать namespace либо в манифестах, либо по умолчанию в настройках ПО с графическим интерфейсом (Lens, например).
+
+Пример запуска пода с Nginx описан в ```\deploy\yc-sirius\edu-charming-yonath\``` в файлах ```simple-pod.yaml``` и ```simple-service.yaml```.
+Реализация основана на работе балансировщика (Application Load Balancer) по принципу "домен -> nodePort". Достаточно указать nodePort, и при обращении к нужному URL балансировщик направит запрос на соответствующий под.
+
+## Postgresql SSL
+Пример пода с загрузкой SSL сертификата для проверки доступности Postgresql реализован в файле ```\deploy\yc-sirius\edu-charming-yonath\simple-psql-testing.yaml```.
+Подключиться к поду и подключиться к postgresql через psql.
+
+
+## Секреты
+Для создания секрета на кластере можно использовать .env файл с данными.
+Пример содержания .env:
+```
+SECRET_KEY=DJANGO-SECRET-KEY
+DATABASE_URL=postgres://POSTGRES_USER:POSTGRES_PASSWORD_@postgresql.default.svc.cluster.local:5432/POSTGRES
+ALLOWED_HOSTS=192.168.1.1,127.0.0.1,localhost
+```
+
+Далее выполняем команду в директории с файлом:
+```
+kubectl create secret generic django-secrets --from-env-file=.env
+```
+
+## Сборка и публикация образа
+
+Сборка образа с тегом, включающим хэш коммита
+
+
+Получите хэш текущего коммита:
+```
+$commitHash = git rev-parse HEAD
+```
+
+Соберите Docker-образ с тегом на основе хэша:
+```
+docker build -t your-dockerhub-username/django-site:$commitHash .
+```
+
+Загрузка образа на Docker Hub
+
+```
+docker login -u your-dockerhub-username
+```
+
+```
+docker push your-dockerhub-username/django-site:$commitHash
+```
+
+

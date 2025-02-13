@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-pod   
+  namespace: edu-charming-yonath
+spec:
+  containers:
+    - name: ubuntu-container
+      image: ubuntu:22.04
+      command: ["/bin/sh"]
+      args:
+        - "-c"
+        - |
+          apt-get update && \
+          apt-get install -y postgresql-client && \
+          mkdir -p /root/.postgresql && \
+          sleep 30000
+      volumeMounts:
+        - mountPath: /root/.postgresql
+          name: pg-root-cert
+          readOnly: true
+  volumes:
+    - name: pg-root-cert
+      secret:
+        secretName: pg-root-cert
